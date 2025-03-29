@@ -237,3 +237,142 @@ Thuật toán đảm bảo tìm được đường đi tối ưu nếu heuristic
 
 - **Hàng đợi sắp xếp theo `f(n)`, ưu tiên mở rộng trạng thái có `f(n)` nhỏ nhất**.
 - Khi Pac-Man ăn bánh thần kỳ, **số bước xuyên tường được thiết lập lại 5** và cho phép đi qua tường.
+
+## Pseudo code
+
+```python
+function A_STAR_SEARCH(problem, goal)
+    returns a path from the initial state to the goal
+
+    inputs:
+        problem  ← an instance of the Problem class
+        goal     ← target position for Pac-Man
+
+    frontier ← priority queue containing (heuristic(problem.initial_state, goal), problem.initial_state, cost=0, power=problem.power_steps, path=[problem.initial_state])
+    explored ← empty set
+
+    while frontier is not empty do
+        (priority, current_state, current_cost, current_power, current_path) ← POP(frontier)
+
+        if current_state == goal then
+            problem.power_steps ← current_power
+            return current_path
+
+        if current_state is in explored then
+            continue
+
+        add current_state to explored
+
+        for each action in GET_ACTIONS(problem, current_state, current_power) do
+            child_state ← action
+            new_cost ← current_cost + 1
+            new_power ← max(0, current_power - 1)
+
+            if problem.maze[child_state] == PIE_CHAR then
+                new_power ← POWER_STEP_DURATION
+
+            if child_state is not in explored then
+                PUSH(frontier, (new_cost + HEURISTIC(child_state, goal), child_state, new_cost, new_power, current_path + [child_state]))
+
+    return null
+
+
+function GET_ACTIONS(problem, state, current_power)
+    returns a list of valid next states
+
+    inputs:
+        problem       ← an instance of the Problem class
+        state         ← current position of Pac-Man
+        current_power ← remaining power-up steps
+
+    actions ← empty list
+    (x, y) ← state
+    directions ← [UP, DOWN, LEFT, RIGHT]
+    corners ← GET_CORNER_POSITIONS(problem)
+
+    if state is in corners then
+        actions ← actions ∪ GET_OPPOSITE_CORNERS(problem, state)
+
+    for each (dx, dy) in directions do
+        new_x ← x + dx
+        new_y ← y + dy
+
+        if new_x, new_y is within bounds of the maze then
+            cell ← problem.maze[new_x, new_y]
+
+            if cell is not WALL_CHAR or current_power > 0 then
+                add (new_x, new_y) to actions
+
+    return actions
+
+```
+
+## Class Design
+
+### `Problem`
+
+📌 **Chức năng:** Quản lý trạng thái của trò chơi, bao gồm bản đồ, vị trí Pac-Man, vị trí thức ăn và các quy tắc di chuyển.
+
+#### **Thuộc tính**
+
+- **`maze`** → Bản đồ mê cung được đọc từ file.
+- **`initial_state`** → Vị trí bắt đầu của Pac-Man.
+- **`food_locations`** → Danh sách vị trí thức ăn trong mê cung.
+- **`visited_cells`** → Lưu các ô Pac-Man đã đi qua.
+- **`power_steps`** → Số bước còn lại khi Pac-Man đang có sức mạnh đặc biệt (ăn bánh Pie).
+
+#### **Phương thức**
+
+- **`__init__(file_path)`** → Đọc bản đồ từ file và thiết lập các giá trị ban đầu.
+- **`load_maze(file_path)`** → Xác định vị trí Pac-Man và thức ăn.
+- **`get_actions(state, current_power)`** → Trả về danh sách các bước đi hợp lệ của Pac-Man.
+- **`get_corner_positions()`** → Xác định vị trí 4 góc của mê cung.
+- **`get_opposite_corners(current_corner)`** → Xác định góc đối diện cho phép dịch chuyển.
+
+---
+
+### `AStar`
+
+📌 **Chức năng:** Tìm đường đi ngắn nhất từ Pac-Man đến thức ăn bằng thuật toán **A\***.
+
+#### **Phương thức**
+
+- **`heuristic(a, b)`** → Tính khoảng cách Manhattan giữa hai điểm.
+- **`search(problem, goal)`** → Tìm đường đi tối ưu từ vị trí Pac-Man đến mục tiêu (thức ăn), tính đến chướng ngại vật và sức mạnh đặc biệt.
+
+---
+
+### `MazeVisualizer`
+
+📌 **Chức năng:** Vẽ Pac-Man, mê cung, thức ăn, tường và hiệu ứng di chuyển.
+
+#### **Thuộc tính**
+
+- **`problem`** → Tham chiếu đến đối tượng `Problem` để lấy thông tin mê cung.
+- **`screen`** → Màn hình Pygame để vẽ trò chơi.
+- **`width, height`** → Kích thước cửa sổ trò chơi dựa trên mê cung.
+- **`frame_count`** → Số khung hình đã hiển thị (dùng để hiệu ứng động).
+- **`pacman_mouth_open`** → Trạng thái miệng của Pac-Man (mở hoặc đóng).
+
+#### **Phương thức**
+
+- **`__init__(problem)`** → Khởi tạo cửa sổ hiển thị trò chơi.
+- **`toggle_pacman_mouth()`** → Thay đổi trạng thái miệng của Pac-Man.
+- **`draw_pacman(pacman_pos, direction)`** → Vẽ Pac-Man theo hướng di chuyển.
+- **`draw(pacman_pos, direction)`** → Vẽ toàn bộ mê cung, thức ăn và Pac-Man trong mỗi bước đi.
+
+---
+
+### `Game`
+
+📌 **Chức năng:** Điều khiển trò chơi, tính toán đường đi và cập nhật trạng thái trò chơi.
+
+#### **Thuộc tính**
+
+- **`problem`** → Lưu trạng thái mê cung và các quy tắc trò chơi.
+- **`visualizer`** → Quản lý hiển thị trò chơi.
+
+#### **Phương thức**
+
+- **`__init__(maze_file)`** → Đọc bản đồ và khởi tạo trò chơi.
+- **`run()`** → Điều khiển Pac-Man ăn hết thức ăn bằng thuật toán A\*, cập nhật màn hình trò chơi.
